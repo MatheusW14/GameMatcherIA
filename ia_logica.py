@@ -104,7 +104,7 @@ def obter_detalhes_jogo(slug):
     url = f"https://api.rawg.io/api/games/{slug}?key={api_key}"
 
     try:
-        res = requests.get(url)
+        res = requests.get(url, timeout=10)
         if res.status_code == 200:
             d = res.json()
             return {
@@ -115,7 +115,7 @@ def obter_detalhes_jogo(slug):
                 "imagem": d.get("background_image"),
                 "site": d.get("website"),
             }
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print(f"Erro ao buscar detalhes: {e}")
     return None
 
@@ -127,7 +127,7 @@ def buscar_video_youtube(nome_jogo):
     # 1. Tenta carregar o cache existente
     cache = {}
     if os.path.exists(arquivo_cache):
-        with open(arquivo_cache, "r") as f:
+        with open(arquivo_cache, "r", encoding="utf-8") as f:
             cache = json.load(f)
 
     # 2. Se o jogo já estiver no cache, retorna o ID sem gastar API
@@ -153,7 +153,7 @@ def buscar_video_youtube(nome_jogo):
 
             # 4. Salva o novo ID no arquivo de cache para a próxima vez
             cache[nome_jogo] = video_id
-            with open(arquivo_cache, "w") as f:
+            with open(arquivo_cache, "w", encoding="utf-8") as f:
                 json.dump(cache, f)
             return video_id
 

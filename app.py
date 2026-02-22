@@ -1,13 +1,13 @@
 from flask import Flask, render_template, request
-from ia_logica import processar_recomendacoes, obter_detalhes_jogo
+from ia_logica import processar_recomendacoes, obter_detalhes_jogo, buscar_video_youtube
 
 app = Flask(__name__)
 
 # Dicionário de plataformas (igual ao que usamos antes)
 PLATAFORMAS = {"pc": 4, "ps5": 187, "ps4": 18, "xbox": 186, "switch": 7}
 VIDEOS_MOCK = {
-    "league-of-legends": "m6pT8Lp8578",  # ID real do trailer de LoL
-    "path-of-exile-2": "9p2X6V_V_h8",  # ID real do trailer de PoE 2
+    "league-of-legends": "vzHrjOMfHPY",  # ID real do trailer de LoL
+    "path-of-exile-2": "pT8Lp8578",  # ID real do trailer de PoE 2
     "chess-ultra": "4Lp50fGvK_Y",  # ID de um jogo de Xadrez
 }
 
@@ -73,8 +73,6 @@ def detalhe_jogo(slug):
             "video_id": VIDEOS_MOCK[slug],  # Pega o ID fixo sem chamar a API
         }
     else:
-        # 2. Se não for teste, busca nas APIs reais (RAWG + YouTube)
-        from ia_logica import obter_detalhes_jogo, buscar_video_youtube
 
         info = obter_detalhes_jogo(slug)
         if info:
