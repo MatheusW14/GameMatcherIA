@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ jogo.nome }} - Detalhes</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f0f0f; color: #f0f0f0; }
+        .game-banner { 
+            width: 100%; height: 400px; object-fit: cover; 
+            filter: brightness(0.4); position: absolute; z-index: -1;
+        }
+        .content-wrapper { padding-top: 150px; }
+        .card-custom { background: #1a1a1a; border: 1px solid #333; border-radius: 15px; }
+        .video-container { border-radius: 20px; overflow: hidden; border: 2px solid #333; }
+    </style>
+</head>
+<body>
+
+<img src="{{ jogo.imagem }}" class="game-banner" onerror="this.src='https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1200'">
+
+<div class="container content-wrapper">
+    <div class="row">
+        <div class="col-lg-8">
+            <h1 class="display-2 fw-bold text-primary mb-3">{{ jogo.nome }}</h1>
+            <div class="d-flex gap-2 mb-4">
+                <span class="badge bg-success p-2">Metacritic: {{ jogo.nota }}</span>
+                <span class="badge bg-secondary p-2">Lançamento: {{ jogo.lancamento }}</span>
+            </div>
+            
+            <h4 class="text-primary mt-5">Resumo da Missão</h4>
+            <p class="lead mb-5" style="text-align: justify; line-height: 1.8;">{{ jogo.descricao }}</p>
+
+            <h4 class="text-primary mb-4">Trailer / Gameplay</h4>
+            <div class="ratio ratio-16x9 shadow-lg rounded overflow-hidden mt-4">
+                {% if jogo.video_id %}
+                    <iframe src="https://www.youtube.com/embed/{{ jogo.video_id }}" 
+                            allowfullscreen></iframe>
+                {% else %}
+                    <div class="bg-dark d-flex align-items-center justify-content-center text-muted" style="height: 450px;">
+                        <p>Trailer não encontrado para este título.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-lg-4 mt-5 mt-lg-0">
+            <div class="card card-custom p-3 shadow">
+                <img src="{{ jogo.imagem }}" class="img-fluid rounded mb-3" alt="Capa do Jogo">
+                <hr class="border-secondary">
+                <p class="text-center text-muted">Pronto para a próxima partida?</p>
+                <a href="/" class="btn btn-primary w-100 fw-bold py-2 mb-2">Nova Busca IA</a>
+                <a href="https://store.steampowered.com/search/?term={{ jogo.nome }}" target="_blank" class="btn btn-outline-success w-100 fw-bold">Ver na Steam</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="text-center py-5 mt-5 text-muted">
+    AI Game Matcher &copy; 2026 | Desenvolvido para Portfólio de Análise de Sistemas
+</footer>
+
+</body>
+</html>
