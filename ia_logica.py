@@ -1,11 +1,19 @@
+"""
+Módulo principal de integração de APIs (Gemini, RAWG e YouTube).
+Gerencia a análise de perfil do usuário e a busca por dados e trailers de jogos.
+"""
+
 import os
-import requests
 import json
 import datetime
 import random
+import requests
 from dotenv import load_dotenv
 from google import genai
 from googleapiclient.discovery import build
+from googleapiclient.errors import (
+    HttpError,
+)  # <-- Adicionado para tratar erros do YouTube
 
 # Carregamos as chaves do seu arquivo .env
 load_dotenv("chaves_api.env")
@@ -26,8 +34,6 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
     Função mestra que recebe o texto e a plataforma e retorna
     um dicionário com os jogos encontrados.
     """
-
-    # 1. IA analisa o perfil
     prompt = f"""
     Analise: "{texto_usuario}"
     Crie perfis de busca independentes. Retorne APENAS JSON:
@@ -44,10 +50,13 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
 
         dados_ia = json.loads(corpo)
         perfis = dados_ia.get("perfis", [])
-    except Exception:
+    except (
+        json.JSONDecodeError,
+        genai.errors.APIError,
+    ) as e:  # Captura erros específicos do Gemini e JSON
+        print(f"Erro na IA: {e}")
         return {"erro": "Falha na análise da IA"}
 
-    # 2. Busca no RAWG
     resultados_finais = []
     ano_atual = datetime.datetime.now().year
 
@@ -64,18 +73,17 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
         if p["epoca"] == "recente":
             params["dates"] = f"{ano_atual-5}-01-01,{ano_atual}-12-31"
 
-        res = requests.get(
-            "https://api.rawg.io/api/games",
-            params=params,
-            timeout=10,
-        )
+        try:
+            res = requests.get(
+                "[https://api.rawg.io/api/games](https://api.rawg.io/api/games)",
+                params=params,
+                timeout=10,
+            )
+            res.raise_for_status()  # Lança erro se a resposta não for 200 OK
 
-        if res.status_code == 200:
             jogos = res.json().get("results", [])
             if jogos:
-                # Sorteamos 3 para dar aquela variedade que você queria
                 selecao = random.sample(jogos, min(3, len(jogos)))
-
                 lista_jogos_limpa = []
                 for j in selecao:
                     lista_jogos_limpa.append(
@@ -83,15 +91,17 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
                             "nome": j["name"],
                             "slug": j["slug"],
                             "nota": j.get("metacritic", "N/A"),
-                            "imagem": j.get(
-                                "background_image"
-                            ),  # Agora pegamos a imagem para o site!
+                            "imagem": j.get("background_image"),
                         }
                     )
-
                 resultados_finais.append(
                     {"tema": p["tema"], "jogos": lista_jogos_limpa}
                 )
+
+        except (
+            requests.exceptions.RequestException
+        ) as e:  # Trata erros do RAWG corretamente
+            print(f"Erro ao buscar no RAWG: {e}")
 
     return resultados_finais
 
@@ -100,56 +110,48 @@ def obter_detalhes_jogo(slug):
     """Busca o máximo de informações detalhadas do RAWG."""
     load_dotenv("chaves_api.env")
     api_key = os.getenv("RAWG_API_KEY")
-    url = f"https://api.rawg.io/api/games/{slug}?key={api_key}"
+    url = f"[https://api.rawg.io/api/games/](https://api.rawg.io/api/games/){slug}?key={api_key}"
 
     try:
-        res = requests.get(url)
-        if res.status_code == 200:
-            d = res.json()
-            # Extraímos listas de nomes para facilitar o uso no HTML
-            return {
-                "nome": d.get("name"),
-                "descricao": d.get("description_raw") or "Descrição não disponível.",
-                "lancamento": d.get("released", "N/A"),
-                "nota": d.get("metacritic", "N/A"),
-                "imagem": d.get("background_image"),
-                "tempo_jogo": d.get("playtime", 0),  # <--- NOVO
-                "generos": [g["name"] for g in d.get("genres", [])],  # <--- NOVO
-                "plataformas": [
-                    p["platform"]["name"] for p in d.get("platforms", [])
-                ],  # <--- NOVO
-                "desenvolvedores": [
-                    dev["name"] for dev in d.get("developers", [])
-                ],  # <--- NOVO
-                "tags": [
-                    t["name"] for t in d.get("tags", [])[:5]
-                ],  # <--- NOVO (as 5 principais)
-            }
-    except Exception as e:
-        print(f"Erro ao buscar detalhes: {e}")
+        res = requests.get(url, timeout=10)
+        res.raise_for_status()
+
+        d = res.json()
+        return {
+            "nome": d.get("name"),
+            "descricao": d.get("description_raw") or "Descrição não disponível.",
+            "lancamento": d.get("released", "N/A"),
+            "nota": d.get("metacritic", "N/A"),
+            "imagem": d.get("background_image"),
+            "tempo_jogo": d.get("playtime", 0),
+            "generos": [g["name"] for g in d.get("genres", [])],
+            "plataformas": [p["platform"]["name"] for p in d.get("platforms", [])],
+            "desenvolvedores": [dev["name"] for dev in d.get("developers", [])],
+            "tags": [t["name"] for t in d.get("tags", [])[:5]],
+        }
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao buscar detalhes no RAWG: {e}")
     return None
 
 
 def buscar_video_youtube(nome_jogo):
     """Busca o ID do vídeo no YouTube com sistema de Cache para economizar cota."""
     arquivo_cache = "youtube_cache.json"
-
-    # 1. Tenta carregar o cache existente
     cache = {}
+
     if os.path.exists(arquivo_cache):
         with open(arquivo_cache, "r", encoding="utf-8") as f:
             cache = json.load(f)
 
-    # 2. Se o jogo já estiver no cache, retorna o ID sem gastar API
     if nome_jogo in cache:
         return cache[nome_jogo]
 
-    # 3. Se não estiver, faz a busca na API do Google
     load_dotenv("chaves_api.env")
     api_key = os.getenv("YOUTUBE_API_KEY")
 
     try:
         youtube = build("youtube", "v3", developerKey=api_key)
+
         request = youtube.search().list(
             q=f"{nome_jogo} official trailer",
             part="snippet",
@@ -160,14 +162,12 @@ def buscar_video_youtube(nome_jogo):
 
         if response["items"]:
             video_id = response["items"][0]["id"]["videoId"]
-
-            # 4. Salva o novo ID no arquivo de cache para a próxima vez
             cache[nome_jogo] = video_id
             with open(arquivo_cache, "w", encoding="utf-8") as f:
                 json.dump(cache, f)
             return video_id
 
-    except Exception as e:
+    except HttpError as e:  # Trata especificamente erros da API do Google
         print(f"Erro na API do YouTube: {e}")
 
     return None
