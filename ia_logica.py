@@ -97,25 +97,35 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
 
 
 def obter_detalhes_jogo(slug):
-    """Busca informações detalhadas de um jogo específico pelo seu slug."""
+    """Busca o máximo de informações detalhadas do RAWG."""
     load_dotenv("chaves_api.env")
-    api_key = os.getenv("CHAVE_RAWG")
-
+    api_key = os.getenv("RAWG_API_KEY")
     url = f"https://api.rawg.io/api/games/{slug}?key={api_key}"
 
     try:
-        res = requests.get(url, timeout=10)
+        res = requests.get(url)
         if res.status_code == 200:
             d = res.json()
+            # Extraímos listas de nomes para facilitar o uso no HTML
             return {
                 "nome": d.get("name"),
                 "descricao": d.get("description_raw") or "Descrição não disponível.",
                 "lancamento": d.get("released", "N/A"),
                 "nota": d.get("metacritic", "N/A"),
                 "imagem": d.get("background_image"),
-                "site": d.get("website"),
+                "tempo_jogo": d.get("playtime", 0),  # <--- NOVO
+                "generos": [g["name"] for g in d.get("genres", [])],  # <--- NOVO
+                "plataformas": [
+                    p["platform"]["name"] for p in d.get("platforms", [])
+                ],  # <--- NOVO
+                "desenvolvedores": [
+                    dev["name"] for dev in d.get("developers", [])
+                ],  # <--- NOVO
+                "tags": [
+                    t["name"] for t in d.get("tags", [])[:5]
+                ],  # <--- NOVO (as 5 principais)
             }
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print(f"Erro ao buscar detalhes: {e}")
     return None
 

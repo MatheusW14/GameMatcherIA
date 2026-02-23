@@ -1,14 +1,37 @@
 from flask import Flask, render_template, request
-from ia_logica import processar_recomendacoes, obter_detalhes_jogo, buscar_video_youtube
+from ia_logica import processar_recomendacoes
 
 app = Flask(__name__)
 
 # Dicionário de plataformas (igual ao que usamos antes)
 PLATAFORMAS = {"pc": 4, "ps5": 187, "ps4": 18, "xbox": 186, "switch": 7}
-VIDEOS_MOCK = {
-    "league-of-legends": "vzHrjOMfHPY",  # ID real do trailer de LoL
-    "path-of-exile-2": "pT8Lp8578",  # ID real do trailer de PoE 2
-    "chess-ultra": "4Lp50fGvK_Y",  # ID de um jogo de Xadrez
+MOCK_GAME_DATA = {
+    "league-of-legends": {
+        "nome": "League of Legends",
+        "nota": 78,
+        "lancamento": "2009",
+        "imagem": "https://media.rawg.io/media/games/78b/78bc81e4eb83de72062f925628e12a60.jpg",
+        "descricao": "Um MOBA altamente competitivo focado em estratégia e equipe. Perfeito para quem gosta de desafios mentais rápidos.",
+        "video_id": "vzHrjOMfHPY",
+        "tempo_jogo": 1500,
+        "generos": ["MOBA", "Estratégia"],
+        "desenvolvedores": ["Riot Games"],
+        "plataformas": ["PC", "macOS"],
+        "tags": ["Competitivo", "Multiplayer", "Team-Based", "PVP", "Tactical"],
+    },
+    "path-of-exile-2": {
+        "nome": "Path of Exile 2",
+        "nota": "TBD",
+        "lancamento": "2024 (Beta)",
+        "imagem": "https://media.rawg.io/media/screenshots/460/46046e7f8e8f8a1f8e1e8f8a1f8e1e8f.jpg",
+        "descricao": "A evolução do RPG de ação. Com um sistema de builds extremamente complexo que desafia até os jogadores mais veteranos.",
+        "video_id": "9p2X6V_V_h8",
+        "tempo_jogo": 0,
+        "generos": ["RPG de Ação", "Hack and Slash"],
+        "desenvolvedores": ["Grinding Gear Games"],
+        "plataformas": ["PC", "PS5", "Xbox Series X/S"],
+        "tags": ["Complexo", "Sombrio", "Deep Lore", "Loot", "Hardcore"],
+    },
 }
 
 
@@ -47,6 +70,7 @@ def index():
                         {
                             "nome": "Chess Ultra",
                             "nota": 80,
+                            "slug": "chess-ultra",
                             "imagem": "https://media.rawg.io/media/games/0d4/0d4949179929f9e54867c4e51f479427.jpg",
                         }
                     ],
@@ -59,24 +83,40 @@ def index():
     return render_template("index.html", recomendacoes=recomendacoes)
 
 
+# Mock data for video IDs
+VIDEOS_MOCK = {
+    "league-of-legends": "vzHrjOMfHPY",
+    "path-of-exile-2": "9p2X6V_V_h8",
+}
+
+
 @app.route("/jogo/<slug>")
 def detalhe_jogo(slug):
-    # 1. Verifica se é um jogo de teste para evitar gastar API
+    # 1. Dados para o Modo Mock (Teste)
     if slug in VIDEOS_MOCK:
-        # Simulamos os dados do RAWG e do YouTube para teste
         info = {
             "nome": slug.replace("-", " ").title(),
             "descricao": f"Este é um resumo de teste para o jogo {slug}. A IA está em modo Mock.",
             "lancamento": "2026",
             "nota": 99,
-            "imagem": "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=800",
-            "video_id": VIDEOS_MOCK[slug],  # Pega o ID fixo sem chamar a API
+            "imagem": "https://media.rawg.io/media/games/78b/78bc81e4eb83de72062f925628e12a60.jpg",
+            "video_id": VIDEOS_MOCK[slug],
+            "tempo_jogo": 100,  # Adicionado para evitar erro
+            "generos": ["Teste", "IA"],
+            "plataformas": ["PC", "Web"],
+            "desenvolvedores": ["Seu Nome"],
+            "tags": ["Inovação", "Python"],
         }
     else:
+        # 2. Busca Real
+        from ia_logica import obter_detalhes_jogo, buscar_video_youtube
 
         info = obter_detalhes_jogo(slug)
         if info:
             info["video_id"] = buscar_video_youtube(info["nome"])
+
+    if not info:
+        return "Jogo não encontrado", 404
 
     return render_template("detalhe.html", jogo=info)
 
