@@ -24,7 +24,13 @@ MOCK_GAME_DATA = {
         "generos": ["MOBA", "Estratégia"],
         "desenvolvedores": ["Riot Games"],
         "plataformas": ["PC", "macOS"],
-        "tags": ["Competitivo", "Multiplayer", "Team-Based", "PVP", "Tactical"],
+        "tags": [
+            "Competitivo",
+            "Multijogador",
+            "Foco em Equipe",
+            "JxJ (PvP)",
+            "Tático",
+        ],  # <-- TRADUZIDO
     },
     "path-of-exile-2": {
         "nome": "Path of Exile 2",
@@ -37,7 +43,13 @@ MOCK_GAME_DATA = {
         "generos": ["RPG de Ação", "Hack and Slash"],
         "desenvolvedores": ["Grinding Gear Games"],
         "plataformas": ["PC", "PS5", "Xbox Series X/S"],
-        "tags": ["Complexo", "Sombrio", "Deep Lore", "Loot", "Hardcore"],
+        "tags": [
+            "Complexo",
+            "Sombrio",
+            "História Profunda",
+            "Saque (Loot)",
+            "Extremo",
+        ],  # <-- TRADUZIDO
     },
     "chess-ultra": {
         "nome": "Chess Ultra",
@@ -50,7 +62,13 @@ MOCK_GAME_DATA = {
         "generos": ["Estratégia", "Tabuleiro", "Simulação"],
         "desenvolvedores": ["Ripstone"],
         "plataformas": ["PC", "PS4", "Xbox One", "Switch"],
-        "tags": ["Tático", "Lógica", "Competitivo", "Realista", "VR"],
+        "tags": [
+            "Tático",
+            "Lógica",
+            "Competitivo",
+            "Realista",
+            "Realidade Virtual",
+        ],  # <-- TRADUZIDO
     },
 }
 

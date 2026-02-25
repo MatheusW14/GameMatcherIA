@@ -18,7 +18,7 @@ from googleapiclient.errors import (
 # Carregamos as chaves do seu arquivo .env
 load_dotenv("chaves_api.env")
 CHAVE_GEMINI = os.getenv("GEMINI_API_KEY")
-CHAVE_RAWG = os.getenv("RAWG_API_KEY")
+RAWG_API_KEY = os.getenv("RAWG_API_KEY")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 if not CHAVE_GEMINI:
@@ -62,7 +62,7 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
 
     for p in perfis:
         params = {
-            "key": CHAVE_RAWG,
+            "key": RAWG_API_KEY,
             "search": p["termo_busca"],
             "platforms": plataforma_id,
             "metacritic": "70,100",
@@ -75,7 +75,7 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
 
         try:
             res = requests.get(
-                "[https://api.rawg.io/api/games](https://api.rawg.io/api/games)",
+                "https://api.rawg.io/api/games",
                 params=params,
                 timeout=10,
             )
@@ -83,7 +83,7 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
 
             jogos = res.json().get("results", [])
             if jogos:
-                selecao = random.sample(jogos, min(3, len(jogos)))
+                selecao = random.sample(jogos, min(5, len(jogos)))
                 lista_jogos_limpa = []
                 for j in selecao:
                     lista_jogos_limpa.append(
@@ -106,20 +106,73 @@ def processar_recomendacoes(texto_usuario, plataforma_id):
     return resultados_finais
 
 
+def traduzir_dados_com_ia(descricao_ingles, tags_ingles):
+    """Usa o Gemini para traduzir a descrição e as tags do jogo para PT-BR."""
+    if not descricao_ingles or len(descricao_ingles) < 5:
+        return "Descrição não disponível.", tags_ingles
+
+    prompt = f"""
+    Você é o sistema do AI Game Matcher.
+    Traduza a descrição e as tags a seguir estritamente para o Português do Brasil (PT-BR).
+    
+    REGRA IMPORTANTE PARA AS TAGS: Traduza termos gamers para o português sempre que possível. 
+    (Exemplo: de "Singleplayer" para "Um Jogador", de "Story Rich" para "Rica em História", de "Atmospheric" para "Atmosférico").
+    Limpe qualquer código HTML perdido (como &#39;).
+    
+    RETORNE APENAS UM JSON VÁLIDO. NÃO USE MARKDOWN EXTRA. O formato deve ser:
+    {{
+        "descricao_ptbr": "texto traduzido aqui",
+        "tags_ptbr": ["tag traduzida 1", "tag traduzida 2", "tag traduzida 3"]
+    }}
+
+    Descrição original: {descricao_ingles}
+    Tags originais: {tags_ingles}
+    """
+
+    try:
+        resposta = cliente_gemini.models.generate_content(
+            model="gemini-3-flash-preview", contents=prompt
+        )
+        corpo = resposta.text.strip()
+
+        # Limpeza caso a IA responda com marcação de bloco de código
+        if corpo.startswith("```json"):
+            corpo = corpo[7:-3].strip()
+        elif corpo.startswith("```"):
+            corpo = corpo[3:-3].strip()
+
+        dados = json.loads(corpo)
+        return dados.get("descricao_ptbr", descricao_ingles), dados.get(
+            "tags_ptbr", tags_ingles
+        )
+    except Exception as e:
+        print(f"Erro na tradução da IA: {e}")
+        return descricao_ingles, tags_ingles
+
+
 def obter_detalhes_jogo(slug):
-    """Busca o máximo de informações detalhadas do RAWG."""
-    load_dotenv("chaves_api.env")
+    """Busca informações detalhadas de um jogo específico pelo seu slug."""
+    load_dotenv("chaves_api.env", override=True)
     api_key = os.getenv("RAWG_API_KEY")
-    url = f"[https://api.rawg.io/api/games/](https://api.rawg.io/api/games/){slug}?key={api_key}"
+
+    url = f"https://api.rawg.io/api/games/{slug}?key={api_key}"
 
     try:
         res = requests.get(url, timeout=10)
         res.raise_for_status()
 
         d = res.json()
+
+        # 1. Pega os textos brutos em inglês do RAWG
+        descricao_bruta = d.get("description_raw") or "Sem descrição."
+        tags_brutas = [t["name"] for t in d.get("tags", [])[:5]]
+
+        # 2. Passa pela nossa IA tradutora!
+        descricao_ptbr, tags_ptbr = traduzir_dados_com_ia(descricao_bruta, tags_brutas)
+
         return {
             "nome": d.get("name"),
-            "descricao": d.get("description_raw") or "Descrição não disponível.",
+            "descricao": descricao_ptbr,
             "lancamento": d.get("released", "N/A"),
             "nota": d.get("metacritic", "N/A"),
             "imagem": d.get("background_image"),
@@ -127,7 +180,7 @@ def obter_detalhes_jogo(slug):
             "generos": [g["name"] for g in d.get("genres", [])],
             "plataformas": [p["platform"]["name"] for p in d.get("platforms", [])],
             "desenvolvedores": [dev["name"] for dev in d.get("developers", [])],
-            "tags": [t["name"] for t in d.get("tags", [])[:5]],
+            "tags": tags_ptbr,  # <-- Agora as tags também estão em PT-BR
         }
     except requests.exceptions.RequestException as e:
         print(f"Erro ao buscar detalhes no RAWG: {e}")
@@ -135,25 +188,37 @@ def obter_detalhes_jogo(slug):
 
 
 def buscar_video_youtube(nome_jogo):
-    """Busca o ID do vídeo no YouTube com sistema de Cache para economizar cota."""
+    """Busca o ID do vídeo no YouTube com sistema de Cache à prova de falhas."""
     arquivo_cache = "youtube_cache.json"
     cache = {}
 
+    # 1. PROTEÇÃO CONTRA CORRUPÇÃO DE ARQUIVO (Tratamento de Exceção)
     if os.path.exists(arquivo_cache):
-        with open(arquivo_cache, "r", encoding="utf-8") as f:
-            cache = json.load(f)
+        try:
+            with open(arquivo_cache, "r", encoding="utf-8") as f:
+                cache = json.load(f)
+        except json.JSONDecodeError:
+            print("AVISO DE SISTEMA: Cache do YouTube corrompido. Recriando estrutura.")
+            cache = {}  # Reseta graciosamente em vez de quebrar a aplicação
 
+    # Retorna do cache instantaneamente se já existir
     if nome_jogo in cache:
         return cache[nome_jogo]
 
-    load_dotenv("chaves_api.env")
-    api_key = os.getenv("YOUTUBE_API_KEY")
+    # 2. USO DE VARIÁVEL GLOBAL (Evita leitura redundante do disco)
+    if not YOUTUBE_API_KEY:
+        print("Erro: YOUTUBE_API_KEY não configurada no ambiente.")
+        return None
 
     try:
-        youtube = build("youtube", "v3", developerKey=api_key)
+        youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
+        # 3. BUSCA MAIS PRECISA ("game" adicionado para evitar falsos positivos)
+        query_busca = f"{nome_jogo} game official trailer"
+
+        # pylint: disable=no-member
         request = youtube.search().list(
-            q=f"{nome_jogo} official trailer",
+            q=query_busca,
             part="snippet",
             type="video",
             maxResults=1,
@@ -163,11 +228,14 @@ def buscar_video_youtube(nome_jogo):
         if response["items"]:
             video_id = response["items"][0]["id"]["videoId"]
             cache[nome_jogo] = video_id
+
+            # Salva o JSON formatado (indent=4) para ficar bonito se um recrutador abrir o arquivo
             with open(arquivo_cache, "w", encoding="utf-8") as f:
-                json.dump(cache, f)
+                json.dump(cache, f, indent=4)
+
             return video_id
 
-    except HttpError as e:  # Trata especificamente erros da API do Google
-        print(f"Erro na API do YouTube: {e}")
+    except HttpError as e:
+        print(f"Erro de comunicação com a API do YouTube: {e}")
 
     return None

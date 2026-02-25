@@ -23,10 +23,7 @@
             overflow-x: hidden; 
         }
 
-        /* Fundo de Partículas (Fica atrás de tudo) */
-        #tsparticles {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
-        }
+        #tsparticles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
 
         .header-glass {
             background: linear-gradient(-45deg, rgba(26,11,46,0.8), rgba(10,10,10,0.8), rgba(59,7,100,0.8), rgba(10,10,10,0.8));
@@ -50,7 +47,6 @@
 
         .btn-primary { background: linear-gradient(90deg, #7e22ce, #a855f7) !important; border: none !important; padding: 15px; font-weight: bold; }
 
-        /* SWIPER CSS */
         .swiper-container-wrapper { position: relative; padding: 20px 0; }
         .mySwiper { width: 100%; padding: 40px 0; }
         .swiper-slide { width: 750px; transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); opacity: 0.25; transform: scale(0.8); filter: blur(4px); }
@@ -65,8 +61,11 @@
         .swiper-button-next, .swiper-button-prev { color: var(--neon-purple); background: rgba(168, 85, 247, 0.1); width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--neon-purple); transition: 0.3s; }
         .swiper-button-next::after, .swiper-button-prev::after { font-weight: 900; font-size: 24px; }
         .swiper-button-next:hover, .swiper-button-prev:hover { background: var(--neon-purple); color: #fff; box-shadow: 0 0 25px var(--neon-purple); transform: scale(1.1); }
+        
         .btn-dossie { border: 1px solid var(--neon-purple); color: var(--neon-purple); border-radius: 30px; padding: 12px 30px; text-decoration: none; font-weight: bold; transition: 0.3s; display: inline-block; }
         .btn-dossie:hover { background: var(--neon-purple); color: white; box-shadow: 0 0 15px var(--neon-purple); }
+        
+        @media (max-width: 768px) { .swiper-slide { width: 90%; } }
     </style>
 </head>
 <body>
@@ -93,7 +92,6 @@
                                 <option value="pc">PC (Master Race)</option>
                                 <option value="ps5">PlayStation 5</option>
                                 <option value="xbox">Xbox Series X/S</option>
-                                <option value="switch">Switch</option>
                             </select>
                         </div>
                         <div class="mb-4">
@@ -109,41 +107,48 @@
             {% endif %}
 
             {% if recomendacoes %}
-                <div class="text-center mb-5">
+                <div class="text-center mb-5 position-relative z-1">
                     <a href="/" class="btn btn-outline-primary btn-sm px-4 py-2" style="border-radius: 30px;" onclick="navigateWithSound(event, this.href)">
                         <i class="bi bi-arrow-left"></i> NOVA ANÁLISE
                     </a>
                 </div>
 
-                {% for perfil in recomendacoes %}
-                    <div class="mb-5">
-                        <h3 class="purple-neon-text mb-4 text-center border-bottom border-secondary pb-3">{{ perfil.tema }}</h3>
-                        <div class="swiper-container-wrapper">
-                            <div class="swiper mySwiper">
-                                <div class="swiper-wrapper">
-                                    {% for jogo in perfil.jogos %}
-                                        <div class="swiper-slide">
-                                            <div class="game-card-carousel">
-                                                <div class="position-relative">
-                                                    <span class="badge bg-success position-absolute top-0 end-0 m-4 p-2 shadow fs-6">Meta: {{ jogo.nota }}</span>
-                                                    <img src="{{ jogo.imagem }}" class="game-img-carousel" alt="{{ jogo.nome }}" onerror="this.src='https://via.placeholder.com/800x450?text=Sem+Imagem'">
-                                                </div>
-                                                <div class="card-body text-center p-5">
-                                                    <h2 class="text-white fw-bold mb-4">{{ jogo.nome }}</h2>
-                                                    <a href="/jogo/{{ jogo.slug }}" class="btn btn-dossie" onclick="navigateWithSound(event, this.href)">
-                                                        <i class="bi bi-search"></i> ABRIR DOSSIÊ
-                                                    </a>
+                {% if recomendacoes is mapping and recomendacoes.erro %}
+                    <div class="cyber-card shadow-lg text-center mx-auto" style="max-width: 600px; border-color: #dc3545;">
+                        <h3 class="text-danger fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> FALHA DE SISTEMA</h3>
+                        <p class="lead mt-3">{{ recomendacoes.erro }}</p>
+                    </div>
+                {% else %}
+                    {% for perfil in recomendacoes %}
+                        <div class="mb-5 position-relative z-1">
+                            <h3 class="purple-neon-text mb-4 text-center border-bottom border-secondary pb-3">{{ perfil.tema }}</h3>
+                            <div class="swiper-container-wrapper">
+                                <div class="swiper mySwiper">
+                                    <div class="swiper-wrapper">
+                                        {% for jogo in perfil.jogos %}
+                                            <div class="swiper-slide">
+                                                <div class="game-card-carousel">
+                                                    <div class="position-relative">
+                                                        <span class="badge bg-success position-absolute top-0 end-0 m-4 p-2 shadow fs-6">Meta: {{ jogo.nota }}</span>
+                                                        <img src="{{ jogo.imagem }}" class="game-img-carousel" alt="{{ jogo.nome }}" onerror="this.src='https://via.placeholder.com/800x450?text=Sem+Imagem'">
+                                                    </div>
+                                                    <div class="card-body text-center p-5">
+                                                        <h2 class="text-white fw-bold mb-4">{{ jogo.nome }}</h2>
+                                                        <a href="/jogo/{{ jogo.slug }}" class="btn btn-dossie" onclick="navigateWithSound(event, this.href)">
+                                                            <i class="bi bi-search"></i> ABRIR DOSSIÊ
+                                                        </a>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    {% endfor %}
+                                        {% endfor %}
+                                    </div>
+                                    <div class="swiper-button-next"></div>
+                                    <div class="swiper-button-prev"></div>
                                 </div>
-                                <div class="swiper-button-next"></div>
-                                <div class="swiper-button-prev"></div>
                             </div>
                         </div>
-                    </div>
-                {% endfor %}
+                    {% endfor %}
+                {% endif %}
             {% endif %}
 
         </div>
@@ -159,7 +164,6 @@
 <script src="https://cdn.jsdelivr.net/npm/tsparticles-bundle@2.12.0/tsparticles.bundle.min.js"></script>
 
 <script>
-    // 1. WEB AUDIO API (Gerador de Sons Sci-Fi)
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx = new AudioContext();
 
@@ -178,15 +182,19 @@
     function playClickSound() { playSound(600, 'square', 0.1, 0.1); setTimeout(() => playSound(900, 'square', 0.15, 0.1), 100); }
     function playSwipeSound() { playSound(200, 'sine', 0.15, 0.05); }
 
-    // 2. INICIALIZAÇÃO DO SWIPER COM SOM
+    function navigateWithSound(event, url) {
+        event.preventDefault(); 
+        playClickSound(); 
+        setTimeout(() => { window.location.href = url; }, 200);
+    }
+
     var swiper = new Swiper(".mySwiper", {
         slidesPerView: "auto", centeredSlides: true, spaceBetween: 40, grabCursor: true,
         navigation: { nextEl: ".swiper-button-next", prevEl: ".swiper-button-prev" },
         keyboard: { enabled: true },
-        on: { slideChange: function () { playSwipeSound(); } } // Toca som ao passar o carrossel
+        on: { slideChange: function () { playSwipeSound(); } }
     });
 
-    // 3. ANIMAÇÃO DE LOADING E SOM NO FORMULÁRIO
     const form = document.querySelector('form');
     if(form) {
         form.addEventListener('submit', function() {
@@ -196,7 +204,6 @@
         });
     }
 
-    // 4. INICIALIZAÇÃO DAS PARTÍCULAS (Rede Neural)
     tsParticles.load("tsparticles", {
         particles: {
             number: { value: 60, density: { enable: true, value_area: 800 } },
@@ -211,16 +218,6 @@
         },
         retina_detect: true
     });
-        
-    function navigateWithSound(event, url) {
-        event.preventDefault(); // Interrompe a mudança de página
-        playClickSound(); // Toca o bipe
-        
-        // Aguarda 200ms e então faz a navegação
-        setTimeout(() => {
-            window.location.href = url;
-        }, 200);
-    }
 </script>
 </body>
 </html>

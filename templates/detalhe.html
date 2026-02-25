@@ -21,11 +21,11 @@
         .cyber-card { background: var(--glass-bg); border: 1px solid #333; border-radius: 20px; padding: 25px; }
         .video-box { border-radius: 20px; overflow: hidden; border: 2px solid #333; }
         
-        /* Cursor piscando para o efeito Terminal */
         .typewriter-cursor { animation: blink 1s step-end infinite; color: var(--neon-purple); font-weight: bold; }
         @keyframes blink { 50% { opacity: 0; } }
         
         .spec-label { color: var(--neon-purple); font-weight: bold; font-size: 0.85rem; }
+        .badge-tag { background: transparent; color: #ccc; border: 1px solid var(--neon-purple); margin-bottom: 5px; }
         
         .btn-steam { background: linear-gradient(90deg, #157347, #198754); border: none; font-weight: bold; }
         .btn-steam:hover { box-shadow: 0 0 15px #198754; filter: brightness(1.2); }
@@ -56,6 +56,12 @@
                 </div>
             </div>
 
+            <div class="mb-4">
+                {% for tag in jogo.tags %}
+                    <span class="badge badge-tag me-1">#{{ tag }}</span>
+                {% endfor %}
+            </div>
+
             <div class="cyber-card shadow-lg mb-4">
                 <h4 class="purple-neon-text border-bottom border-secondary pb-3 d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-terminal"></i> DADOS DA MISSÃO</span>
@@ -79,7 +85,7 @@
 
                     <div class="d-grid gap-2">
                         <a href="https://store.steampowered.com/search/?term={{ jogo.nome }}" target="_blank" class="btn btn-steam text-white py-3 shadow-sm" onclick="playBeep()">ADQUIRIR NA STEAM</a>
-                        <a href="/" class="btn btn-outline-light btn-sm mt-2" onclick="playBeep()">VOLTAR AO RADAR</a>
+                        <button onclick="voltarAoRadar()" class="btn btn-outline-light btn-sm mt-2 w-100">VOLTAR AO RADAR</button>
                     </div>
                 </div>
 
@@ -110,38 +116,36 @@
         osc.start(); osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    // 2. EFEITO TYPEWRITER (Terminal)
+    // 2. EFEITO TYPEWRITER (Com Som de Digitação)
     const rawText = `{{ jogo.descricao|replace('\n', ' ')|replace('\r', '') }}`;
-const textContainer = document.getElementById("terminal-text");
-const btnDecrypt = document.getElementById("btnDecrypt");
-let i = 0;
+    const textContainer = document.getElementById("terminal-text");
+    const btnDecrypt = document.getElementById("btnDecrypt");
+    let i = 0;
 
-function playTypingSound() {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle'; 
-    osc.frequency.setValueAtTime(1000 + Math.random() * 500, audioCtx.currentTime); // Frequência variável para parecer teclado
-    gain.gain.setValueAtTime(0.01, audioCtx.currentTime); // Volume bem baixo
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-    osc.connect(gain); gain.connect(audioCtx.destination);
-    osc.start(); osc.stop(audioCtx.currentTime + 0.05);
-}
-
-function typeWriter() {
-    if (i < rawText.length) {
-        textContainer.innerHTML += rawText.charAt(i);
-        // Toca som apenas algumas vezes para não sobrecarregar o áudio
-        if (rawText.charAt(i) !== ' ' && i % 3 === 0) playTypingSound();
-        i++;
-        setTimeout(typeWriter, 15);
-    } else {
-        btnDecrypt.innerText = "ACESSO LIBERADO";
-        btnDecrypt.classList.replace('btn-outline-success', 'btn-success');
+    function playTypingSound() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle'; 
+        osc.frequency.setValueAtTime(1000 + Math.random() * 500, audioCtx.currentTime); 
+        gain.gain.setValueAtTime(0.01, audioCtx.currentTime); 
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.05);
     }
-}
 
-// Inicia apenas quando o usuário clica
+    function typeWriter() {
+        if (i < rawText.length) {
+            textContainer.innerHTML += rawText.charAt(i);
+            if (rawText.charAt(i) !== ' ' && i % 3 === 0) playTypingSound();
+            i++;
+            setTimeout(typeWriter, 15);
+        } else {
+            btnDecrypt.innerText = "ACESSO LIBERADO";
+            btnDecrypt.classList.replace('btn-outline-success', 'btn-success');
+        }
+    }
+
     btnDecrypt.addEventListener('click', () => {
         textContainer.innerHTML = '';
         textContainer.classList.remove('text-muted');
@@ -151,8 +155,6 @@ function typeWriter() {
     });
 
     // 3. GRÁFICO RADAR (Chart.js)
-    // Como a API não nos dá stats específicos (Força, Magia, etc), 
-    // geramos valores dinâmicos baseados no nome do jogo para simular a IA.
     const gameHash = `{{ jogo.nome }}`.length; 
     const v1 = (gameHash * 7) % 100 || 85;
     const v2 = (gameHash * 13) % 100 || 70;
@@ -186,6 +188,15 @@ function typeWriter() {
             plugins: { legend: { display: false } }
         }
     });
+    // 4. FUNÇÃO DE VOLTAR AO HISTÓRICO (Com som)
+    function voltarAoRadar() {
+        playBeep(); // Toca o som do console
+        
+        // Aguarda 200ms para o som sair antes de mudar de página
+        setTimeout(() => {
+            window.history.back();
+        }, 200);
+    }
 </script>
 </body>
 </html>
