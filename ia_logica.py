@@ -145,7 +145,7 @@ def traduzir_dados_com_ia(descricao_ingles, tags_ingles):
         return dados.get("descricao_ptbr", descricao_ingles), dados.get(
             "tags_ptbr", tags_ingles
         )
-    except Exception as e:
+    except (json.JSONDecodeError, genai.errors.APIError) as e:
         print(f"Erro na tradução da IA: {e}")
         return descricao_ingles, tags_ingles
 
