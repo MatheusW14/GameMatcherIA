@@ -1,1 +1,8 @@
+# Arquivos de ambiente e senhas
 chaves_api.env
+.env
+
+# Pastas de cache do Python e ambientes virtuais
+__pycache__/
+venv/
+youtube_cache.json
