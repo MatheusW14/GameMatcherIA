@@ -4,6 +4,8 @@ Gerencia as rotas de interface, formulários e integração com o motor de IA.
 """
 
 from flask import Flask, render_template, request
+import psycopg2
+import os
 from ia_logica import processar_recomendacoes, obter_detalhes_jogo, buscar_video_youtube
 
 app = Flask(__name__)
@@ -30,7 +32,7 @@ MOCK_GAME_DATA = {
             "Foco em Equipe",
             "JxJ (PvP)",
             "Tático",
-        ],  # <-- TRADUZIDO
+        ],
     },
     "path-of-exile-2": {
         "nome": "Path of Exile 2",
@@ -49,7 +51,7 @@ MOCK_GAME_DATA = {
             "História Profunda",
             "Saque (Loot)",
             "Extremo",
-        ],  # <-- TRADUZIDO
+        ],
     },
     "chess-ultra": {
         "nome": "Chess Ultra",
@@ -68,39 +70,50 @@ MOCK_GAME_DATA = {
             "Competitivo",
             "Realista",
             "Realidade Virtual",
-        ],  # <-- TRADUZIDO
+        ],
     },
 }
 
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    """
-    Handles the main route of the application, processes user input, and generates game recommendations.
-    This function supports both a mock testing mode and a real recommendation mode:
-    - If the user inputs "TESTE" (case-insensitive) in the "perfil_usuario" field, mock data is returned.
-    - Otherwise, it processes the input and fetches recommendations using the `processar_recomendacoes` function.
-    Returns:
-        str: The rendered HTML template for the index page, including the recommendations.
-    Request Parameters:
-        - perfil_usuario (str): The user's profile text input.
-        - plataforma (str): The name of the platform selected by the user.
-    Variables:
-        - recomendacoes (list or None): A list of game recommendations or None if no recommendations are available.
-        - texto (str): The trimmed user input from the "perfil_usuario" field.
-        - plataforma_nome (str): The name of the platform selected by the user.
-        - id_plat (int): The platform ID derived from the `PLATAFORMAS` dictionary or defaulted to 4.
-    Notes:
-        - The mock data is retrieved from the `MOCK_GAME_DATA` dictionary.
-        - The real recommendation logic is handled by the `processar_recomendacoes` function.
-        - The recommendations are passed to the "index.html" template for rendering.
-    """
     recomendacoes = None
 
     if request.method == "POST":
         texto = request.form.get("perfil_usuario", "").strip()
         plataforma_nome = request.form.get("plataforma")
         id_plat = PLATAFORMAS.get(plataforma_nome, 4)
+
+        # --- INÍCIO DA INTEGRAÇÃO COM O BANCO DE DADOS ---
+        if texto and texto.upper() != "TESTE":
+            try:
+                # Liga ao banco do container usando a variável do docker-compose
+                conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+                cur = conn.cursor()
+
+                # Cria a tabela se ela ainda não existir
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS historico_buscas (
+                        id SERIAL PRIMARY KEY,
+                        termo_buscado TEXT NOT NULL,
+                        data_busca TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """
+                )
+
+                # Salva o humor gamer pesquisado
+                cur.execute(
+                    "INSERT INTO historico_buscas (termo_buscado) VALUES (%s)", (texto,)
+                )
+
+                conn.commit()
+                cur.close()
+                conn.close()
+                print("Busca guardada na base de dados com sucesso!")
+            except Exception as e:
+                print(f"Erro na base de dados: {e}")
+        # --- FIM DA INTEGRAÇÃO ---
 
         # Ativando o Modo de Teste com a palavra-chave
         if texto.upper() == "TESTE":
@@ -143,29 +156,13 @@ def index():
 
 @app.route("/jogo/<slug>")
 def detalhe_jogo(slug):
-    """
-    Renderiza a página de detalhes de um jogo com base no slug fornecido.
-    Este método utiliza dados mock para testes ou busca informações reais
-    de um jogo através de APIs externas (RAWG e YouTube). Caso o slug não
-    seja encontrado ou ocorra um erro na comunicação com as APIs, uma
-    mensagem de erro é exibida.
-    Args:
-        slug (str): Identificador único do jogo.
-    Returns:
-        Response: Um objeto de resposta HTTP que renderiza a página de detalhes
-        do jogo ou a página inicial com uma mensagem de erro.
-    """
-    # 1. Dados para o Modo Mock (Teste)
-    # Agora a rota usa os dados ricos do MOCK_GAME_DATA que criamos!
     if slug in MOCK_GAME_DATA:
         info = MOCK_GAME_DATA[slug]
     else:
-        # 2. Lógica Real (Busca no RAWG e Youtube)
         info = obter_detalhes_jogo(slug)
         if info:
             info["video_id"] = buscar_video_youtube(info["nome"])
 
-    # Tratamento de erro elegante caso a API falhe ou a URL seja inválida
     if not info:
         return (
             render_template(
@@ -181,4 +178,4 @@ def detalhe_jogo(slug):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

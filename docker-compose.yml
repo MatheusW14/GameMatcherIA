@@ -1,0 +1,30 @@
+
+services:
+  # Container 1: Sua aplicação Flask
+  api_jogos:
+    build: . # Diz pro Compose construir a imagem usando o Dockerfile desta pasta
+    ports:
+      - "5000:5000" # Mapeia a porta 5000 do seu PC para a porta 5000 do container
+    environment:
+      # Variável de ambiente pro Flask saber como achar o banco de dados
+      - DATABASE_URL=postgresql://user:password@db:5432/meubanco
+    depends_on:
+      - db # Só liga a API depois que o banco estiver rodando
+
+  # Container 2: O Banco de Dados
+  db:
+    image: postgres:13 # Baixa a imagem oficial do PostgreSQL pronta
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=meubanco
+    ports:
+      - "5432:5432"
+    volumes:
+      # Salva os dados na sua máquina para não perder se o container desligar
+      - postgres_data:/var/lib/postgresql/data 
+
+volumes:
+  postgres_data:
+
+ 
