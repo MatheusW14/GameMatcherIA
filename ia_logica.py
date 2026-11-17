@@ -5,105 +5,59 @@ Gerencia a análise de perfil do usuário e a busca por dados e trailers de jogo
 
 import os
 import json
-import datetime
-import random
 import requests
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 from googleapiclient.discovery import build
 from googleapiclient.errors import (
     HttpError,
 )  # <-- Adicionado para tratar erros do YouTube
+
+from agente import AgenteJogos
 
 # Carregamos as chaves do seu arquivo .env
 load_dotenv("chaves_api.env")
 CHAVE_GEMINI = os.getenv("GEMINI_API_KEY")
 RAWG_API_KEY = os.getenv("RAWG_API_KEY")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+MODELO_GEMINI = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
 if not CHAVE_GEMINI:
     raise ValueError(
         "ERRO: A chave do Gemini não foi carregada. Verifique o arquivo chaves_api.env"
     )
 
-cliente_gemini = genai.Client(api_key=CHAVE_GEMINI)
+cliente_gemini = genai.Client(
+    api_key=CHAVE_GEMINI,
+    http_options=types.HttpOptions(api_version="v1beta"),
+)
 
 
 def processar_recomendacoes(texto_usuario, plataforma_id):
     """
-    Função mestra que recebe o texto e a plataforma e retorna
-    um dicionário com os jogos encontrados.
+    Aciona o agente de IA (veja agente.py). Retorna (recomendacoes, passos):
+    - recomendacoes: lista de grupos {"tema", "jogos"} ou {"erro": "..."};
+    - passos: rastro das consultas feitas pelo agente, exibido na interface.
     """
-    prompt = f"""
-    Analise: "{texto_usuario}"
-    Crie perfis de busca independentes. Retorne APENAS JSON:
-    {{ "perfis": [ {{"tema": "Título", "termo_busca": "termo", "epoca": "recente/qualquer"}} ] }}
-    """
+    if not RAWG_API_KEY:
+        return {"erro": "A chave do RAWG não está configurada."}, []
 
+    agente = AgenteJogos(
+        cliente_gemini, RAWG_API_KEY, plataforma_id, modelo=MODELO_GEMINI
+    )
     try:
-        resposta = cliente_gemini.models.generate_content(
-            model="gemini-3-flash-preview", contents=prompt
-        )
-        corpo = resposta.text.strip()
-        if corpo.startswith("```json"):
-            corpo = corpo[7:-3].strip()
-
-        dados_ia = json.loads(corpo)
-        perfis = dados_ia.get("perfis", [])
-    except (
-        json.JSONDecodeError,
-        genai.errors.APIError,
-    ) as e:  # Captura erros específicos do Gemini e JSON
+        grupos, passos = agente.executar(texto_usuario)
+    except genai.errors.APIError as e:
         print(f"Erro na IA: {e}")
-        return {"erro": "Falha na análise da IA"}
+        return {"erro": "Falha na análise da IA"}, []
 
-    resultados_finais = []
-    ano_atual = datetime.datetime.now().year
-
-    for p in perfis:
-        params = {
-            "key": RAWG_API_KEY,
-            "search": p["termo_busca"],
-            "platforms": plataforma_id,
-            "metacritic": "70,100",
-            "ordering": "-added",
-            "page_size": 15,
-        }
-
-        if p["epoca"] == "recente":
-            params["dates"] = f"{ano_atual-5}-01-01,{ano_atual}-12-31"
-
-        try:
-            res = requests.get(
-                "https://api.rawg.io/api/games",
-                params=params,
-                timeout=10,
-            )
-            res.raise_for_status()  # Lança erro se a resposta não for 200 OK
-
-            jogos = res.json().get("results", [])
-            if jogos:
-                selecao = random.sample(jogos, min(5, len(jogos)))
-                lista_jogos_limpa = []
-                for j in selecao:
-                    lista_jogos_limpa.append(
-                        {
-                            "nome": j["name"],
-                            "slug": j["slug"],
-                            "nota": j.get("metacritic", "N/A"),
-                            "imagem": j.get("background_image"),
-                        }
-                    )
-                resultados_finais.append(
-                    {"tema": p["tema"], "jogos": lista_jogos_limpa}
-                )
-
-        except (
-            requests.exceptions.RequestException
-        ) as e:  # Trata erros do RAWG corretamente
-            print(f"Erro ao buscar no RAWG: {e}")
-
-    return resultados_finais
+    if not grupos:
+        return {
+            "erro": "Não encontrei jogos que combinem com esse pedido. "
+            "Tente descrever de outro jeito."
+        }, passos
+    return grupos, passos
 
 
 def traduzir_dados_com_ia(descricao_ingles, tags_ingles):
@@ -131,7 +85,7 @@ def traduzir_dados_com_ia(descricao_ingles, tags_ingles):
 
     try:
         resposta = cliente_gemini.models.generate_content(
-            model="gemini-3-flash-preview", contents=prompt
+            model=MODELO_GEMINI, contents=prompt
         )
         corpo = resposta.text.strip()
 

@@ -78,6 +78,7 @@ MOCK_GAME_DATA = {
 @app.route("/", methods=["GET", "POST"])
 def index():
     recomendacoes = None
+    passos = None
 
     if request.method == "POST":
         texto = request.form.get("perfil_usuario", "").strip()
@@ -149,9 +150,9 @@ def index():
             ]
         else:
             # Caso não seja teste, chama a lógica real que aciona a API do Gemini
-            recomendacoes = processar_recomendacoes(texto, id_plat)
+            recomendacoes, passos = processar_recomendacoes(texto, id_plat)
 
-    return render_template("index.html", recomendacoes=recomendacoes)
+    return render_template("index.html", recomendacoes=recomendacoes, passos=passos)
 
 
 @app.route("/jogo/<slug>")

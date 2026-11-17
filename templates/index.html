@@ -134,7 +134,8 @@
                                                         <img src="{{ jogo.imagem }}" class="game-img-carousel" alt="{{ jogo.nome }}" onerror="this.src='https://via.placeholder.com/800x450?text=Sem+Imagem'">
                                                     </div>
                                                     <div class="card-body text-center p-5">
-                                                        <h2 class="text-white fw-bold mb-4">{{ jogo.nome }}</h2>
+                                                        <h2 class="text-white fw-bold mb-3">{{ jogo.nome }}</h2>
+                                                        {% if jogo.motivo %}<p class="text-white-50 mb-4">{{ jogo.motivo }}</p>{% endif %}
                                                         <a href="/jogo/{{ jogo.slug }}" class="btn btn-dossie" onclick="navigateWithSound(event, this.href)">
                                                             <i class="bi bi-search"></i> ABRIR DOSSIÊ
                                                         </a>
@@ -149,6 +150,20 @@
                             </div>
                         </div>
                     {% endfor %}
+                    {% if passos %}
+                        <div class="cyber-card mx-auto mt-4" style="max-width: 800px;">
+                            <a class="text-decoration-none purple-neon-text" data-bs-toggle="collapse" href="#passosAgente" role="button">
+                                <i class="bi bi-cpu"></i> COMO O AGENTE CHEGOU NESSAS SUGESTÕES ({{ passos|length }} consultas)
+                            </a>
+                            <div class="collapse mt-3" id="passosAgente">
+                                <ol class="text-white-50 small mb-0">
+                                    {% for p in passos %}
+                                        <li><code>{{ p.ferramenta }}</code>({{ p.args_texto }}) &rarr; {{ p.resumo }}</li>
+                                    {% endfor %}
+                                </ol>
+                            </div>
+                        </div>
+                    {% endif %}
                 {% endif %}
             {% endif %}
 
